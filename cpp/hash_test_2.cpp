@@ -12,18 +12,18 @@ struct status {
 	status() : whites(0), blacks(0), resolved(true) {}
 
 	static size_t resolve(size_t x) {
-		const size_t mask = 0x3F;
+		const size_t mask = 0x1FF;
 		std::vector<int> v(0);
 		v.reserve(6);
 		while (x > 0) {
 			v.push_back(x & mask);
-			x >>= 6;
+			x >>= 9;
 		}
 		std::sort(v.begin(), v.end());
 
 		size_t ret = 0;
 		for (const auto l : v) {
-			ret <<= 6;
+			ret <<= 9;
 			ret |= l;
 		}
 		return ret;
@@ -37,8 +37,8 @@ struct status {
 
 	void add(int loc, int dep, bool white) { 
 		size_t & target = (white)?whites:blacks;
-		size_t bits = dep * 6;
-		target &= ~((0x3F) << bits);
+		size_t bits = dep * 9;
+		target &= ~((0x1FF) << bits);
 		target |= loc << bits;
 		resolved = false;
 	}
@@ -66,8 +66,8 @@ struct status {
 
 
 // set vs. unordered set
-typedef std::unordered_set<status, status::hash> status_set;
-//typedef std::set<status> status_set;
+//typedef std::unordered_set<status, status::hash> status_set;
+typedef std::set<status> status_set;
 
 status make_random_status() {
 	std::random_device rd;
