@@ -3,6 +3,7 @@
 #include <set>
 #include <random> // used for making random status
 #include <algorithm>
+#include <cassert>
 
 struct status {
 	mutable size_t whites;
@@ -35,11 +36,10 @@ struct status {
 		resolved = true;
 	}
 
-	void add(int loc, int dep, bool white) { 
+	void add(int loc, bool white) { 
 		size_t & target = (white)?whites:blacks;
-		size_t bits = dep * 9;
-		target &= ~((0x1FF) << bits);
-		target |= loc << bits;
+		target <<= 9;
+		target |= loc;
 		resolved = false;
 	}
 
@@ -79,13 +79,13 @@ status make_random_status() {
 		int a = dis(gen);
 		int b = dis(gen);
 		if (b % 2) continue;
-		ret.add(a, i, true);
+		ret.add(a, true);
 	}
 	for (int i = 0 ; i < 6 ; ++i) {
 		int a = dis(gen);
 		int b = dis(gen);
 		if (b % 2) continue;
-		ret.add(a, i, false);
+		ret.add(a, false);
 	}
 	return ret;
 }
@@ -95,23 +95,53 @@ status make_status(size_t n) {
 	size_t tn = n;
 	for (int i = 0 ; i < 6 ; ++i) {
 		if (n <= 0) break;
-		ret.add(n % 391, i, true);
+		ret.add(n % 391,  true);
 		n /= 391;
 	}
 
 	n = ~tn;
 	for (int i = 0 ; i < 6 ; ++i) {
 		if (n <= 0) break;
-		ret.add(n % 391, i, false);
+		ret.add(n % 391, false);
 	}
 	return ret;
 }
+/*
+void testing() {
+	std::vector<int> whites = {5,12,352,187,44,32} , blacks = {1,23,73,56,284,390} ;
+	status reference;
+	auto make_status = [](const auto & whites, const auto & blacks) {
+		status ret;
+		for (int i = 0 ; i < whites.size() ; ++i) {
+			ret.add(whites[i], true);
+		}
+		for (int i = 0 ; i < blacks.size() ; ++i) {
+			ret.add(blacks[i], false);
+		}
+		return ret;
+	};
+	reference = make_status(whites, blacks);
+	for (int x = 0 ; x < 100 ; ++x) {
+		random_shuffle(whites.begin(), whites.end());
+		random_shuffle(blacks.begin(), blacks.end());
+		auto s = make_status(whites, blacks);
+		assert(reference == s);
+	}
+
+}
+*/
 
 int main(int argc, const char *argv[])
 {
 	status_set set;
 	int hit_count = 0;
 	const int total_trial = 10000000;
+
+/*
+	testing();
+	return 0;
+*/
+
 	for (int i = 0 ; i < total_trial ; ++i)  {
 		status s = make_status(i);
 		//status s = make_random_status();
