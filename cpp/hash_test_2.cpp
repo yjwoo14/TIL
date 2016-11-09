@@ -4,17 +4,6 @@
 #include <random> // used for making random status
 #include <algorithm>
 
-size_t boost_hash_combine(size_t a, size_t b) {
-	return a ^ (b + 0x9e3779b9 + (a << 6) + (a >> 2));
-}
-
-constexpr int32_t ceil(float num)
-{
-	return (static_cast<float>(static_cast<int32_t>(num)) == num)
-		? static_cast<int32_t>(num)
-		: static_cast<int32_t>(num) + ((num > 0) ? 1 : 0);
-}
-
 struct status {
 	mutable size_t whites;
 	mutable size_t blacks;
