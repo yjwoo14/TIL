@@ -31,6 +31,8 @@ struct TriviallyCopyableTupleImpl<ReverseIntegerSequence<Is...>, Ts...>
     : TriviallyCopyableElement<Is, Ts>... {
 	using BaseType = TriviallyCopyableTupleImpl;
 	TriviallyCopyableTupleImpl(){}
+	TriviallyCopyableTupleImpl(TriviallyCopyableTupleImpl &) = default;
+	TriviallyCopyableTupleImpl(const TriviallyCopyableTupleImpl &) = default;
 	template <typename... Us>
 	TriviallyCopyableTupleImpl(Us &&... us)
 	    : TriviallyCopyableElement<Is, Ts>{static_cast<Us &&>(us)}... {}
@@ -39,8 +41,6 @@ struct TriviallyCopyableTupleImpl<ReverseIntegerSequence<Is...>, Ts...>
 
 template <unsigned I, typename T>
 struct TriviallyCopyableTupleElement {
-	// TODO: check or make it work with const element....
-	// typedef typename std::decay<decltype(T::template _get<I>(T()))>::type type;
 	typedef typename std::remove_reference<decltype(T::template _get<I>(T()))>::type type;
 };
 
@@ -48,7 +48,16 @@ template <typename... Ts>
 struct TriviallyCopyableTuple
     : TriviallyCopyableTupleImpl<
           typename MakeReverseIntegerSequence<sizeof...(Ts)>::type, Ts...> {
+
+	typedef TriviallyCopyableTupleImpl<
+	    typename MakeReverseIntegerSequence<sizeof...(Ts)>::type, Ts...> BaseType;
+
 	TriviallyCopyableTuple() = default;
+	TriviallyCopyableTuple(TriviallyCopyableTuple & o)
+		: TriviallyCopyableTuple::BaseType(static_cast<BaseType &>(o)) {}
+	TriviallyCopyableTuple(const TriviallyCopyableTuple & o)
+		: TriviallyCopyableTuple::BaseType(static_cast<const BaseType &>(o)) {}
+
 
 	template <typename... Us>
 	TriviallyCopyableTuple(Us &&... us)
@@ -152,6 +161,9 @@ int main(int argc, const char *argv[]) {
 		get<2>(A) = 1.2;
 		std::cout << get<0>(A) << " " << get<1>(A) << " " << get<2>(A) << std::endl;
 		std::cout << get<0>(B) << " " << get<1>(B) << " " << get<2>(B) << std::endl;
+		A = B;
+		auto C = A;
+		auto D = B;
 	}
 
 	{
