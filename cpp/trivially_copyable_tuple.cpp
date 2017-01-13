@@ -5,6 +5,7 @@
 #include <typeinfo>
 #include <cassert>
 #include <cstring>
+#include <numeric>
 
 // Reference: http://coliru.stacked-crooked.com/view?id=d51ff6c809c9d6fabede11d0fa67a19a-f0d9bbac4ab033ac5f4ce440d21735ee
 
@@ -47,14 +48,11 @@ struct TupleImpl<ReverseIntegerSequence<Is...>, Ts...>
 
 };
 
-bool allTrue(bool head) {
-	return head;
-}
-
-template <typename ...X>
-bool allTrue(bool head, X... tail) {
-	if (!head) return false;
-	return allTrue(tail...);
+template <typename T, typename BinaryOperation, typename ...Ts>
+T accumulate(T init, BinaryOperation op, Ts... item) {
+	typedef std::common_type_t<Ts...> CommonType;
+	std::initializer_list<CommonType> list {item...};
+	return std::accumulate(std::begin(list), std::end(list), init, op);
 }
 
 template <typename T>
@@ -203,9 +201,11 @@ struct Tuple
 	template <typename... Us, unsigned... Is>
 	bool equalImpl(const Tuple<Us...> &r,
 	               ReverseIntegerSequence<Is...>) const {
-		return allTrue(std::equal_to<typename TupleElement<
-		                   Is, Tuple>::type>()(
-		    (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
+		return accumulate(
+				true, [](bool a, bool b) { return a && b; },
+				std::equal_to<typename TupleElement<Is, Tuple>::type>()(
+					(*this).template _get<Is>(*this),
+					r.template _get<Is>(r))...);
 	}
 
 	template <typename... Us>
