@@ -8,6 +8,8 @@
 
 // Reference: http://coliru.stacked-crooked.com/view?id=d51ff6c809c9d6fabede11d0fa67a19a-f0d9bbac4ab033ac5f4ce440d21735ee
 
+namespace {
+
 template <unsigned...>
 struct ReverseIntegerSequence {
 	using type = ReverseIntegerSequence;
@@ -43,6 +45,30 @@ struct TriviallyCopyableTupleImpl<ReverseIntegerSequence<Is...>, Ts...>
 	TriviallyCopyableTupleImpl & operator=(TriviallyCopyableTupleImpl &&) = default;
 
 };
+
+bool allTrue(bool head) {
+	return head;
+}
+
+template <typename ...X>
+bool allTrue(bool head, X... tail) {
+	if (!head) return false;
+	return allTrue(tail...);
+}
+
+template <typename T>
+bool compare(const T & head) {
+	return head(head.l, head.r);
+}
+
+template <typename T1, typename ...T2>
+bool compare(const T1 & head, const T2 &... tail) {
+	if (head(head.l, head.r)) return true;
+	if (!head(head.r, head.l)) return compare(tail...);
+	return false;
+}
+
+} // namespace
 
 template <typename... Ts>
 struct TriviallyCopyableTuple;
@@ -100,41 +126,44 @@ struct TriviallyCopyableTuple
 		return e.value;
 	}
 
-	static bool allTrue(bool head) {
-		return head;
-	}
-
-	template <typename ...X>
-	static bool allTrue(bool head, X... tail) {
-		if (!head) return false;
-		return allTrue(tail...);
-	}
-
 	template <typename T>
 	struct LessCompare {
 		const T &l, &r;
-		std::less<T> comp;
 		LessCompare(const T &l, const T &r): l(l), r(r) {}
+		bool operator()(const T &l, const T &r) const {
+			return std::less<T>()(l, r);
+		}
 	};
 
 	template <typename T>
 	struct GreaterCompare {
 		const T &l, &r;
-		std::greater<T> comp;
 		GreaterCompare(const T &l, const T &r): l(l), r(r) {}
+		bool operator()(const T &l, const T &r) const {
+			return std::greater<T>()(l, r);
+		}
 	};
 
 	template <typename T>
-	static bool compare(const T & head) {
-		return head.comp(head.l, head.r);
-	}
+	struct LessEqualCompare {
+		const T &l, &r;
+		LessEqualCompare(const T &l, const T &r): l(l), r(r) {}
+		bool operator()(const T &l, const T &r) const {
+			if (std::equal_to<T>()(l, r)) return true;
+			return std::less<T>()(l, r);
+		}
+	};
 
-	template <typename T1, typename ...T2>
-	static bool compare(const T1 & head, const T2 &... tail) {
-		if (head.comp(head.l, head.r)) return true;
-		if (!head.comp(head.r, head.l)) return compare(tail...);
-		return false;
-	}
+	template <typename T>
+	struct GreaterEqualCompare {
+		const T &l, &r;
+		GreaterEqualCompare(const T &l, const T &r): l(l), r(r) {}
+		bool operator()(const T &l, const T &r) const {
+			if (std::equal_to<T>()(l, r)) return true;
+			return std::greater<T>()(l, r);
+		}
+	};
+
 
 	template <typename... Us, unsigned... Is>
 	bool lessImpl(const TriviallyCopyableTuple<Us...> &r,
@@ -153,6 +182,24 @@ struct TriviallyCopyableTuple
 	}
 
 	template <typename... Us, unsigned... Is>
+	bool lessEqualImpl(const TriviallyCopyableTuple<Us...> &r,
+	                   ReverseIntegerSequence<Is...>) const {
+		return compare(LessEqualCompare<typename TriviallyCopyableTupleElement<
+		                   Is, TriviallyCopyableTuple>::type>(
+		    (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
+	}
+
+	template <typename... Us, unsigned... Is>
+	bool greaterEqualImpl(const TriviallyCopyableTuple<Us...> &r,
+	                      ReverseIntegerSequence<Is...>) const {
+		return compare(
+		    GreaterEqualCompare<typename TriviallyCopyableTupleElement<
+		        Is, TriviallyCopyableTuple>::type>(
+		        (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
+	}
+
+
+	template <typename... Us, unsigned... Is>
 	bool equalImpl(const TriviallyCopyableTuple<Us...> &r,
 	               ReverseIntegerSequence<Is...>) const {
 		return allTrue(std::equal_to<typename TriviallyCopyableTupleElement<
@@ -164,6 +211,12 @@ struct TriviallyCopyableTuple
 	bool operator<(const TriviallyCopyableTuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
 		return lessImpl(o, Ris{});
+	}
+
+	template <typename... Us>
+	bool operator<=(const TriviallyCopyableTuple<Us...> &o) const {
+		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
+		return lessEqualImpl(o, Ris{});
 	}
 
 	template <typename... Us>
@@ -184,6 +237,11 @@ struct TriviallyCopyableTuple
 		return greaterImpl(o, Ris{});
 	}
 
+	template <typename... Us>
+	bool operator>=(const TriviallyCopyableTuple<Us...> &o) const {
+		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
+		return greaterEqualImpl(o, Ris{});
+	}
 };
 
 template <unsigned I, typename... Ts>
@@ -277,9 +335,13 @@ int main(int argc, const char *argv[]) {
 		assert(Y > X);
 		assert(!(X == Y));
 		assert(Z == X);
+		assert(Z <= X);
+		assert(Z >= X);
 		assert(Z != Y);
 		assert(X < Z1);
+		assert(X <= Z1);
 		assert(X > Z2);
+		assert(X >= Z2);
 	}
 
 	{
