@@ -8,6 +8,7 @@
 
 // Reference: http://coliru.stacked-crooked.com/view?id=d51ff6c809c9d6fabede11d0fa67a19a-f0d9bbac4ab033ac5f4ce440d21735ee
 
+namespace TriviallyCopyable {
 namespace {
 
 template <unsigned...>
@@ -22,27 +23,27 @@ template <unsigned... Is>
 struct MakeReverseIntegerSequence<0, Is...> : ReverseIntegerSequence<Is...> {};
 
 template <unsigned I, typename T>
-struct TriviallyCopyableElement {
+struct Element {
 	static_assert(std::is_trivially_copyable<T>::value, "Required trivially copyable element.");
 	T value;
 };
 
 template <typename seq, typename... Ts>
-struct TriviallyCopyableTupleImpl;
+struct TupleImpl;
 
 template <unsigned... Is, typename... Ts>
-struct TriviallyCopyableTupleImpl<ReverseIntegerSequence<Is...>, Ts...>
-    : TriviallyCopyableElement<Is, Ts>... {
-	using BaseType = TriviallyCopyableTupleImpl;
-	TriviallyCopyableTupleImpl() = default;
-	TriviallyCopyableTupleImpl(TriviallyCopyableTupleImpl &) = default;
-	TriviallyCopyableTupleImpl(TriviallyCopyableTupleImpl &&) = default;
-	TriviallyCopyableTupleImpl(const TriviallyCopyableTupleImpl &) = default;
+struct TupleImpl<ReverseIntegerSequence<Is...>, Ts...>
+    : Element<Is, Ts>... {
+	using BaseType = TupleImpl;
+	TupleImpl() = default;
+	TupleImpl(TupleImpl &) = default;
+	TupleImpl(TupleImpl &&) = default;
+	TupleImpl(const TupleImpl &) = default;
 	template <typename... Us>
-	TriviallyCopyableTupleImpl(Us &&... us)
-	    : TriviallyCopyableElement<Is, Ts>{static_cast<Us &&>(us)}... {}
-	TriviallyCopyableTupleImpl & operator=(const TriviallyCopyableTupleImpl &) = default;
-	TriviallyCopyableTupleImpl & operator=(TriviallyCopyableTupleImpl &&) = default;
+	TupleImpl(Us &&... us)
+	    : Element<Is, Ts>{static_cast<Us &&>(us)}... {}
+	TupleImpl & operator=(const TupleImpl &) = default;
+	TupleImpl & operator=(TupleImpl &&) = default;
 
 };
 
@@ -71,58 +72,58 @@ bool compare(const T1 & head, const T2 &... tail) {
 } // namespace
 
 template <typename... Ts>
-struct TriviallyCopyableTuple;
+struct Tuple;
 
 template <unsigned I, typename T>
-struct TriviallyCopyableTupleElement;
+struct TupleElement;
 
 template <unsigned I, typename Head, typename ... Tail>
-struct TriviallyCopyableTupleElement<I, TriviallyCopyableTuple<Head, Tail...>>
-	: TriviallyCopyableTupleElement<I-1, TriviallyCopyableTuple<Tail...>> {};
+struct TupleElement<I, Tuple<Head, Tail...>>
+	: TupleElement<I-1, Tuple<Tail...>> {};
 
 template <typename Head, typename ... Tail>
-struct TriviallyCopyableTupleElement<0, TriviallyCopyableTuple<Head, Tail...>> {
+struct TupleElement<0, Tuple<Head, Tail...>> {
 	typedef Head type;
 };
 
 template <typename... Ts>
-struct TriviallyCopyableTuple
-    : TriviallyCopyableTupleImpl<
+struct Tuple
+    : TupleImpl<
           typename MakeReverseIntegerSequence<sizeof...(Ts)>::type, Ts...> {
 	typedef typename MakeReverseIntegerSequence<sizeof...(Ts)>::type Ris;
 
-	TriviallyCopyableTuple() = default;
-	TriviallyCopyableTuple(TriviallyCopyableTuple &) = default;
-	TriviallyCopyableTuple(const TriviallyCopyableTuple &) = default;
-	TriviallyCopyableTuple(TriviallyCopyableTuple &&) = default;
+	Tuple() = default;
+	Tuple(Tuple &) = default;
+	Tuple(const Tuple &) = default;
+	Tuple(Tuple &&) = default;
 
 	template <typename... Us>
-	TriviallyCopyableTuple(Us &&... us)
-	    : TriviallyCopyableTuple::BaseType(static_cast<Us &&>(us)...) {}
-	TriviallyCopyableTuple &operator=(const TriviallyCopyableTuple &) = default;
-	TriviallyCopyableTuple &operator=(TriviallyCopyableTuple &&) = default;
+	Tuple(Us &&... us)
+	    : Tuple::BaseType(static_cast<Us &&>(us)...) {}
+	Tuple &operator=(const Tuple &) = default;
+	Tuple &operator=(Tuple &&) = default;
 
 	template <typename... Us>
-	TriviallyCopyableTuple &operator=(const TriviallyCopyableTuple<Us...> &o) {
-		static_assert(!std::is_same<TriviallyCopyableTuple<Ts...>, TriviallyCopyableTuple<Us...>>::value, "tuple type must be different");
+	Tuple &operator=(const Tuple<Us...> &o) {
+		static_assert(!std::is_same<Tuple<Ts...>, Tuple<Us...>>::value, "tuple type must be different");
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple object can be assigned if they have equal sizes.");
 		copyAssignmentOperatorImpl(o, Ris{});
 		return *this;
 	}
 
 	template <typename... Us, unsigned ...Is>
-	void copyAssignmentOperatorImpl(const TriviallyCopyableTuple<Us...> &o,
+	void copyAssignmentOperatorImpl(const Tuple<Us...> &o,
 	                                ReverseIntegerSequence<Is...>) {
 		std::initializer_list<int>{static_cast<int>(this->template _get<Is>(*this) = o.template _get<Is>(o), 0)...};
 	}
 
 	template <unsigned I, typename T>
-	static const T & _get(const TriviallyCopyableElement<I, T> &e) {
+	static const T & _get(const Element<I, T> &e) {
 		return e.value;
 	}
 
 	template <unsigned I, typename T>
-	static T &_get(TriviallyCopyableElement<I, T> &e) {
+	static T &_get(Element<I, T> &e) {
 		return e.value;
 	}
 
@@ -166,100 +167,113 @@ struct TriviallyCopyableTuple
 
 
 	template <typename... Us, unsigned... Is>
-	bool lessImpl(const TriviallyCopyableTuple<Us...> &r,
+	bool lessImpl(const Tuple<Us...> &r,
 	              ReverseIntegerSequence<Is...>) const {
-		return compare(LessCompare<typename TriviallyCopyableTupleElement<
-		                   Is, TriviallyCopyableTuple>::type>(
+		return compare(LessCompare<typename TupleElement<
+		                   Is, Tuple>::type>(
 		    (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
 	}
 
 	template <typename... Us, unsigned... Is>
-	bool greaterImpl(const TriviallyCopyableTuple<Us...> &r,
+	bool greaterImpl(const Tuple<Us...> &r,
 	                 ReverseIntegerSequence<Is...>) const {
-		return compare(GreaterCompare<typename TriviallyCopyableTupleElement<
-		                   Is, TriviallyCopyableTuple>::type>(
+		return compare(GreaterCompare<typename TupleElement<
+		                   Is, Tuple>::type>(
 		    (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
 	}
 
 	template <typename... Us, unsigned... Is>
-	bool lessEqualImpl(const TriviallyCopyableTuple<Us...> &r,
+	bool lessEqualImpl(const Tuple<Us...> &r,
 	                   ReverseIntegerSequence<Is...>) const {
-		return compare(LessEqualCompare<typename TriviallyCopyableTupleElement<
-		                   Is, TriviallyCopyableTuple>::type>(
+		return compare(LessEqualCompare<typename TupleElement<
+		                   Is, Tuple>::type>(
 		    (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
 	}
 
 	template <typename... Us, unsigned... Is>
-	bool greaterEqualImpl(const TriviallyCopyableTuple<Us...> &r,
+	bool greaterEqualImpl(const Tuple<Us...> &r,
 	                      ReverseIntegerSequence<Is...>) const {
 		return compare(
-		    GreaterEqualCompare<typename TriviallyCopyableTupleElement<
-		        Is, TriviallyCopyableTuple>::type>(
+		    GreaterEqualCompare<typename TupleElement<
+		        Is, Tuple>::type>(
 		        (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
 	}
 
 
 	template <typename... Us, unsigned... Is>
-	bool equalImpl(const TriviallyCopyableTuple<Us...> &r,
+	bool equalImpl(const Tuple<Us...> &r,
 	               ReverseIntegerSequence<Is...>) const {
-		return allTrue(std::equal_to<typename TriviallyCopyableTupleElement<
-		                   Is, TriviallyCopyableTuple>::type>()(
+		return allTrue(std::equal_to<typename TupleElement<
+		                   Is, Tuple>::type>()(
 		    (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
 	}
 
 	template <typename... Us>
-	bool operator<(const TriviallyCopyableTuple<Us...> &o) const {
+	bool operator<(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
 		return lessImpl(o, Ris{});
 	}
 
 	template <typename... Us>
-	bool operator<=(const TriviallyCopyableTuple<Us...> &o) const {
+	bool operator<=(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
 		return lessEqualImpl(o, Ris{});
 	}
 
 	template <typename... Us>
-	bool operator==(const TriviallyCopyableTuple<Us...> &o) const {
+	bool operator==(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
 		return equalImpl(o, Ris{});
 	}
 
 	template <typename... Us>
-	bool operator!=(const TriviallyCopyableTuple<Us...> &o) const {
+	bool operator!=(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
 		return !equalImpl(o, Ris{});
 	}
 
 	template <typename... Us>
-	bool operator>(const TriviallyCopyableTuple<Us...> &o) const {
+	bool operator>(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
 		return greaterImpl(o, Ris{});
 	}
 
 	template <typename... Us>
-	bool operator>=(const TriviallyCopyableTuple<Us...> &o) const {
+	bool operator>=(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
 		return greaterEqualImpl(o, Ris{});
 	}
 };
 
 template <unsigned I, typename... Ts>
-auto get(const TriviallyCopyableTuple<Ts...> &tuple)
+auto get(const Tuple<Ts...> &tuple)
     -> decltype(tuple.template _get<I>(tuple)) {
 	return tuple.template _get<I>(tuple);
 }
 
 template <unsigned I, typename... Ts>
-auto get(TriviallyCopyableTuple<Ts...> &tuple)
+auto get(Tuple<Ts...> &tuple)
     -> decltype(tuple.template _get<I>(tuple)) {
 	return tuple.template _get<I>(tuple);
 }
 
+template <typename... Ts, unsigned... Is>
+std::tuple<Ts...> makeTupleImpl(const Tuple<Ts...> &tuple,
+                                ReverseIntegerSequence<Is...>) {
+	return std::tuple<Ts...>(get<Is>(tuple)...);
+}
+
+template <typename... Ts>
+std::tuple<Ts...> makeTuple(const Tuple<Ts...> &tuple) {
+	typedef typename MakeReverseIntegerSequence<sizeof...(Ts)>::type Ris;
+	return makeTupleImpl(tuple, Ris{});
+}
+} // namespace TriviallyCopyable
+
 int main(int argc, const char *argv[]) {
 	static_assert(std::is_trivially_copyable<const int>::value, "Const int is trivially copyable");
 	static_assert(std::is_trivially_copyable<std::tuple<int, int>>::value == false, "tuple is not trivially copyable");
-	static_assert(std::is_trivially_copyable<TriviallyCopyableTuple<int, float, double>>::value, "new tuple is trivially copyable");
+	static_assert(std::is_trivially_copyable<TriviallyCopyable::Tuple<int, float, double>>::value, "new tuple is trivially copyable");
 
 	static_assert(std::is_same<int, std::tuple_element<0, std::tuple<int, float, double>>::type>::value, "type mismatched 0");
 	static_assert(std::is_same<float, std::tuple_element<1, std::tuple<int, float, double>>::type>::value, "type mismatched 1");
@@ -268,46 +282,46 @@ int main(int argc, const char *argv[]) {
 	static_assert(std::is_same<const float, std::tuple_element<1, std::tuple<int, const float, double>>::type>::value, "type mismatched 1");
 	static_assert(std::is_same<const double, std::tuple_element<2, std::tuple<int, float, const double>>::type>::value, "type mismatched 2");
 
-	static_assert(std::is_same<int, TriviallyCopyableTupleElement<0, TriviallyCopyableTuple<int, float, double>>::type>::value, "type mismatched 0");
-	static_assert(std::is_same<float, TriviallyCopyableTupleElement<1, TriviallyCopyableTuple<int, float, double>>::type>::value, "type mismatched 1");
-	static_assert(std::is_same<double, TriviallyCopyableTupleElement<2, TriviallyCopyableTuple<int, float, double>>::type>::value, "type mismatched 2");
-	static_assert(std::is_same<const int, TriviallyCopyableTupleElement<0, TriviallyCopyableTuple<const int, float, double>>::type>::value, "type mismatched 0");
-	static_assert(std::is_same<const float, TriviallyCopyableTupleElement<1, TriviallyCopyableTuple<int, const float, double>>::type>::value, "type mismatched 1");
-	static_assert(std::is_same<const double, TriviallyCopyableTupleElement<2, TriviallyCopyableTuple<int, float, const double>>::type>::value, "type mismatched 2");
+	static_assert(std::is_same<int, TriviallyCopyable::TupleElement<0, TriviallyCopyable::Tuple<int, float, double>>::type>::value, "type mismatched 0");
+	static_assert(std::is_same<float, TriviallyCopyable::TupleElement<1, TriviallyCopyable::Tuple<int, float, double>>::type>::value, "type mismatched 1");
+	static_assert(std::is_same<double, TriviallyCopyable::TupleElement<2, TriviallyCopyable::Tuple<int, float, double>>::type>::value, "type mismatched 2");
+	static_assert(std::is_same<const int, TriviallyCopyable::TupleElement<0, TriviallyCopyable::Tuple<const int, float, double>>::type>::value, "type mismatched 0");
+	static_assert(std::is_same<const float, TriviallyCopyable::TupleElement<1, TriviallyCopyable::Tuple<int, const float, double>>::type>::value, "type mismatched 1");
+	static_assert(std::is_same<const double, TriviallyCopyable::TupleElement<2, TriviallyCopyable::Tuple<int, float, const double>>::type>::value, "type mismatched 2");
 
 	std::cout << std::boolalpha;
 	{
-		auto funct = [](){return TriviallyCopyableTuple<int, float, double>();};
-		TriviallyCopyableTuple<int, float, double> A;
-		const TriviallyCopyableTuple<int, float, double> B = {1,2.f,3.};
-		get<0>(A) = 1;
-		get<1>(A) = 1.1;
-		get<2>(A) = 1.2;
-		assert(get<0>(A) == (int)1);
-		assert(get<1>(A) == (float)1.1);
-		assert(get<2>(A) == (double)1.2);
+		auto funct = [](){return TriviallyCopyable::Tuple<int, float, double>();};
+		TriviallyCopyable::Tuple<int, float, double> A;
+		const TriviallyCopyable::Tuple<int, float, double> B = {1,2.f,3.};
+		TriviallyCopyable::get<0>(A) = 1;
+		TriviallyCopyable::get<1>(A) = 1.1;
+		TriviallyCopyable::get<2>(A) = 1.2;
+		assert(TriviallyCopyable::get<0>(A) == (int)1);
+		assert(TriviallyCopyable::get<1>(A) == (float)1.1);
+		assert(TriviallyCopyable::get<2>(A) == (double)1.2);
 
 		auto C = A;
-		auto D = TriviallyCopyableTuple<int, float, double>{};
+		auto D = TriviallyCopyable::Tuple<int, float, double>{};
 		D = B;
-		assert(get<0>(D) == get<0>(B));
-		assert(get<1>(D) == get<1>(B));
-		assert(get<2>(D) == get<2>(B));
+		assert(TriviallyCopyable::get<0>(D) == TriviallyCopyable::get<0>(B));
+		assert(TriviallyCopyable::get<1>(D) == TriviallyCopyable::get<1>(B));
+		assert(TriviallyCopyable::get<2>(D) == TriviallyCopyable::get<2>(B));
 
 		D = std::move(A);
 
-		assert(get<0>(D) == (int)1);
-		assert(get<1>(D) == (float)1.1);
-		assert(get<2>(D) == (double)1.2);
+		assert(TriviallyCopyable::get<0>(D) == (int)1);
+		assert(TriviallyCopyable::get<1>(D) == (float)1.1);
+		assert(TriviallyCopyable::get<2>(D) == (double)1.2);
 
 		std::memcpy(&D, &B, sizeof(B));
-		assert(get<0>(D) == get<0>(B));
-		assert(get<1>(D) == get<1>(B));
-		assert(get<2>(D) == get<2>(B));
+		assert(TriviallyCopyable::get<0>(D) == TriviallyCopyable::get<0>(B));
+		assert(TriviallyCopyable::get<1>(D) == TriviallyCopyable::get<1>(B));
+		assert(TriviallyCopyable::get<2>(D) == TriviallyCopyable::get<2>(B));
 
-		TriviallyCopyableTuple<int, float, double> E(B);
+		TriviallyCopyable::Tuple<int, float, double> E(B);
 		assert(E == B);
-		const TriviallyCopyableTuple<int, float, double> F(A);
+		const TriviallyCopyable::Tuple<int, float, double> F(A);
 		assert(F == A);
 	}
 
@@ -327,7 +341,7 @@ int main(int argc, const char *argv[]) {
 
 	{
 
-		typedef TriviallyCopyableTuple<const int, int> Type;
+		typedef TriviallyCopyable::Tuple<const int, int> Type;
 		Type X(3,1), Y(4,2), Z(3,1), Z1(3,2), Z2(2,-1);
 		assert(X < Y);
 		assert(!(Y < X));
@@ -350,8 +364,8 @@ int main(int argc, const char *argv[]) {
 	}
 
 	{
-		typedef TriviallyCopyableTuple<int, TriviallyCopyableTuple<int, int>> Type1;
-		Type1 a(1, TriviallyCopyableTuple<int,int>(2,3));
+		typedef TriviallyCopyable::Tuple<int, TriviallyCopyable::Tuple<int, int>> Type1;
+		Type1 a(1, TriviallyCopyable::Tuple<int,int>(2,3));
 	}
 
 	{
@@ -363,8 +377,8 @@ int main(int argc, const char *argv[]) {
 	}
 
 	{
-		typedef TriviallyCopyableTuple<int, int> Type1;
-		typedef TriviallyCopyableTuple<uint32_t, uint32_t> Type2;
+		typedef TriviallyCopyable::Tuple<int, int> Type1;
+		typedef TriviallyCopyable::Tuple<uint32_t, uint32_t> Type2;
 		Type1 a(1,2);
 		Type2 b(1u,2u);
 		Type1 c(a);
@@ -376,12 +390,19 @@ int main(int argc, const char *argv[]) {
 			A = 0,
 			B = 1,
 		};
-		typedef TriviallyCopyableTuple<int, E> Type1;
+		typedef TriviallyCopyable::Tuple<int, E> Type1;
 		Type1 a(1,A), b;
 		std::memcpy(&b, &a, sizeof(Type1));
-		std::cout << get<0>(b) << ' ' << get<1>(b) << std::endl;
+		std::cout << TriviallyCopyable::get<0>(b) << ' ' << TriviallyCopyable::get<1>(b) << std::endl;
 	}
 
-//	TriviallyCopyableTuple<std::tuple<int>> c; // error
+	{
+		TriviallyCopyable::Tuple<int, double>a(1, 2.);
+		std::tuple<int, double> b = makeTuple(a);
+		assert(TriviallyCopyable::get<0>(a) == std::get<0>(b));
+		assert(TriviallyCopyable::get<1>(a) == std::get<1>(b));
+	}
+
+//	TriviallyCopyable::Tuple<std::tuple<int>> c; // error
 	return 0;
 }
