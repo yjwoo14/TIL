@@ -37,10 +37,10 @@ struct TupleImpl<ReverseIntegerSequence<Is...>, Ts...>
     : Element<Is, Ts>... {
 	using BaseType = TupleImpl;
 	TupleImpl() = default;
-	TupleImpl(TupleImpl &) = default;
 	TupleImpl(TupleImpl &&) = default;
 	TupleImpl(const TupleImpl &) = default;
-	template <typename... Us>
+	template <typename... Us,
+			  typename = std::enable_if_t<(sizeof...(Us) == sizeof...(Ts))>>
 	TupleImpl(Us &&... us)
 	    : Element<Is, Ts>{static_cast<Us &&>(us)}... {}
 	TupleImpl & operator=(const TupleImpl &) = default;
@@ -91,11 +91,11 @@ struct Tuple
 	typedef typename MakeReverseIntegerSequence<sizeof...(Ts)>::type Ris;
 
 	Tuple() = default;
-	Tuple(Tuple &) = default;
 	Tuple(const Tuple &) = default;
 	Tuple(Tuple &&) = default;
 
-	template <typename... Us>
+	template <typename... Us, 
+			  typename = std::enable_if_t<(sizeof...(Us) == sizeof...(Ts))>>
 	Tuple(Us &&... us)
 	    : Tuple::BaseType(static_cast<Us &&>(us)...) {}
 	Tuple &operator=(const Tuple &) = default;
@@ -243,6 +243,25 @@ struct Tuple
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
 		return greaterEqualImpl(o, Ris{});
 	}
+
+	template <unsigned... Is>
+	std::tuple<Ts...> makeStdTupleImpl(ReverseIntegerSequence<Is...>) const {
+		return std::tuple<Ts...>(_get<Is>(*this)...);
+	}
+
+	template <typename... Us, unsigned... Is>
+	Tuple<Us...> makeTupleImpl(ReverseIntegerSequence<Is...>) const {
+		return Tuple<Us...>(_get<Is>(*this)...);
+	}
+
+	operator std::tuple<Ts...>() const {
+		return makeStdTupleImpl(Ris{});
+	}
+
+	template <typename... Us>
+	operator Tuple<Us...>() const {
+		return makeTupleImpl<Us...>(Ris{});
+	}
 };
 
 template <unsigned I, typename... Ts>
@@ -257,17 +276,6 @@ auto get(Tuple<Ts...> &tuple)
 	return tuple.template _get<I>(tuple);
 }
 
-template <typename... Ts, unsigned... Is>
-std::tuple<Ts...> makeTupleImpl(const Tuple<Ts...> &tuple,
-                                ReverseIntegerSequence<Is...>) {
-	return std::tuple<Ts...>(get<Is>(tuple)...);
-}
-
-template <typename... Ts>
-std::tuple<Ts...> makeTuple(const Tuple<Ts...> &tuple) {
-	typedef typename MakeReverseIntegerSequence<sizeof...(Ts)>::type Ris;
-	return makeTupleImpl(tuple, Ris{});
-}
 } // namespace TriviallyCopyable
 
 int main(int argc, const char *argv[]) {
@@ -326,6 +334,12 @@ int main(int argc, const char *argv[]) {
 	}
 
 	{
+		TriviallyCopyable::Tuple<int> A(1);
+		auto C = A;
+		assert(TriviallyCopyable::get<0>(A) == TriviallyCopyable::get<0>(C));
+	}
+
+	{
 		typedef std::tuple<const int, int> Type;
 		Type X(3,1), Y(4,2), Z(3,1), Z1(3,2), Z2(2,-1);
 		assert(X < Y);
@@ -373,6 +387,8 @@ int main(int argc, const char *argv[]) {
 		typedef std::tuple<uint32_t, uint32_t> Type2;
 		Type1 a(1,2);
 		Type2 b(1u,2u);
+		Type1 c(a);
+		Type2 d(a);
 		b = a;
 	}
 
@@ -382,7 +398,10 @@ int main(int argc, const char *argv[]) {
 		Type1 a(1,2);
 		Type2 b(1u,2u);
 		Type1 c(a);
+		Type2 d(a);
 		b = a;
+		assert(TriviallyCopyable::get<0>(d) == TriviallyCopyable::get<0>(a));
+		assert(TriviallyCopyable::get<1>(d) == TriviallyCopyable::get<1>(a));
 	}
 
 	{
@@ -398,11 +417,22 @@ int main(int argc, const char *argv[]) {
 
 	{
 		TriviallyCopyable::Tuple<int, double>a(1, 2.);
-		std::tuple<int, double> b = makeTuple(a);
+		std::tuple<int, double> b = a;
 		assert(TriviallyCopyable::get<0>(a) == std::get<0>(b));
 		assert(TriviallyCopyable::get<1>(a) == std::get<1>(b));
 	}
 
+	{
+		std::tuple<int> x(1);
+		std::tuple<std::tuple<uint32_t>> y(std::move(x));
+		std::tuple<uint32_t> z(std::move(x));
+	}
+
+	{
+		TriviallyCopyable::Tuple<int> x(1);
+		// TriviallyCopyable::Tuple<TriviallyCopyable::Tuple<uint32_t>> y(std::move(x)); // TODO
+		// TriviallyCopyable::Tuple<uint32_t> z(std::move(x)); // TODO
+	}
 //	TriviallyCopyable::Tuple<std::tuple<int>> c; // error
 	return 0;
 }
