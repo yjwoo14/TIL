@@ -11,6 +11,10 @@
 
 namespace TriviallyCopyable {
 namespace {
+template <bool...> 
+struct BoolPack;
+template <bool... T>
+using AllTrue = std::is_same<BoolPack<true, T...>, BoolPack<T..., true>>;
 
 template <unsigned...>
 struct ReverseIntegerSequence {
@@ -39,10 +43,8 @@ struct TupleImpl<ReverseIntegerSequence<Is...>, Ts...>
 	TupleImpl() = default;
 	TupleImpl(TupleImpl &&) = default;
 	TupleImpl(const TupleImpl &) = default;
-	template <typename... Us,
-			  typename = std::enable_if_t<(sizeof...(Us) == sizeof...(Ts))>>
-	TupleImpl(Us &&... us)
-	    : Element<Is, Ts>{static_cast<Us &&>(us)}... {}
+	TupleImpl(const Ts &... ts)
+	    : Element<Is, Ts>{ts}... {}
 	TupleImpl & operator=(const TupleImpl &) = default;
 	TupleImpl & operator=(TupleImpl &&) = default;
 
@@ -95,9 +97,13 @@ struct Tuple
 	Tuple(Tuple &&) = default;
 
 	template <typename... Us, 
-			  typename = std::enable_if_t<(sizeof...(Us) == sizeof...(Ts))>>
+			  typename = std::enable_if_t<(sizeof...(Us) == sizeof...(Ts)) && (AllTrue<std::is_convertible<Us &&, const Ts &>::value...>::value)>>
 	Tuple(Us &&... us)
-	    : Tuple::BaseType(static_cast<Us &&>(us)...) {}
+	    : Tuple::BaseType(static_cast<const Ts &>(us)...) {}
+	
+	Tuple(const Ts &... ts)
+		: Tuple::BaseType(ts...) {}
+
 	Tuple &operator=(const Tuple &) = default;
 	Tuple &operator=(Tuple &&) = default;
 
@@ -112,7 +118,7 @@ struct Tuple
 	template <typename... Us, unsigned ...Is>
 	void copyAssignmentOperatorImpl(const Tuple<Us...> &o,
 	                                ReverseIntegerSequence<Is...>) {
-		std::initializer_list<int>{static_cast<int>(this->template _get<Is>(*this) = o.template _get<Is>(o), 0)...};
+		(void)std::initializer_list<int>{static_cast<int>(this->template _get<Is>(*this) = o.template _get<Is>(o), 0)...};
 	}
 
 	template <unsigned I, typename T>
@@ -398,7 +404,7 @@ int main(int argc, const char *argv[]) {
 		Type1 a(1,2);
 		Type2 b(1u,2u);
 		Type1 c(a);
-		Type2 d(a);
+		Type2 d(a); // narrow conversion
 		b = a;
 		assert(TriviallyCopyable::get<0>(d) == TriviallyCopyable::get<0>(a));
 		assert(TriviallyCopyable::get<1>(d) == TriviallyCopyable::get<1>(a));
@@ -429,9 +435,10 @@ int main(int argc, const char *argv[]) {
 	}
 
 	{
-		TriviallyCopyable::Tuple<int> x(1);
-		// TriviallyCopyable::Tuple<TriviallyCopyable::Tuple<uint32_t>> y(std::move(x)); // TODO
-		// TriviallyCopyable::Tuple<uint32_t> z(std::move(x)); // TODO
+		TriviallyCopyable::Tuple<uint32_t> x(1);
+		TriviallyCopyable::Tuple<TriviallyCopyable::Tuple<uint32_t>> y1(x);
+		TriviallyCopyable::Tuple<TriviallyCopyable::Tuple<uint32_t>> y2(std::move(x));
+		TriviallyCopyable::Tuple<uint32_t> z(std::move(x)); 
 	}
 //	TriviallyCopyable::Tuple<std::tuple<int>> c; // error
 	return 0;
