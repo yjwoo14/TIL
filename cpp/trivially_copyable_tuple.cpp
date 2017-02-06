@@ -31,6 +31,9 @@ template <unsigned I, typename T>
 struct Element {
 	static_assert(std::is_trivially_copyable<T>::value, "Required trivially copyable element.");
 	T value;
+	Element() : value() {}
+	Element(const T & v) : value(v) {}
+	Element(T && v) : value(std::move(v)) {}
 };
 
 template <typename seq, typename... Ts>
@@ -41,10 +44,14 @@ struct TupleImpl<ReverseIntegerSequence<Is...>, Ts...>
     : Element<Is, Ts>... {
 	using BaseType = TupleImpl;
 	TupleImpl() = default;
-	TupleImpl(TupleImpl &&) = default;
 	TupleImpl(const TupleImpl &) = default;
-	TupleImpl(const Ts &... ts)
-	    : Element<Is, Ts>{ts}... {}
+	TupleImpl(TupleImpl &&) = default;
+
+	template <typename ... Us,
+			  typename = std::enable_if_t<(sizeof...(Us) == sizeof...(Ts)) 
+				  && (AllTrue<std::is_constructible<Ts, Us &&>::value...>::value)>>
+	TupleImpl(Us &&... us)
+	    : Element<Is, Ts>(std::forward<Us>(us))... {}
 	TupleImpl & operator=(const TupleImpl &) = default;
 	TupleImpl & operator=(TupleImpl &&) = default;
 
@@ -97,12 +104,10 @@ struct Tuple
 	Tuple(Tuple &&) = default;
 
 	template <typename... Us, 
-			  typename = std::enable_if_t<(sizeof...(Us) == sizeof...(Ts)) && (AllTrue<std::is_convertible<Us &&, const Ts &>::value...>::value)>>
+			  typename = std::enable_if_t<(sizeof...(Us) == sizeof...(Ts)) 
+				  && (AllTrue<std::is_constructible<Ts, Us &&>::value...>::value)>>
 	Tuple(Us &&... us)
-	    : Tuple::BaseType(static_cast<const Ts &>(us)...) {}
-	
-	Tuple(const Ts &... ts)
-		: Tuple::BaseType(ts...) {}
+	    : Tuple::BaseType(std::forward<Us>(us)...) {}
 
 	Tuple &operator=(const Tuple &) = default;
 	Tuple &operator=(Tuple &&) = default;
