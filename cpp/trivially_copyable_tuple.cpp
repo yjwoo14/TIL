@@ -10,6 +10,7 @@
 #include <utility>
 
 // Reference: http://coliru.stacked-crooked.com/view?id=d51ff6c809c9d6fabede11d0fa67a19a-f0d9bbac4ab033ac5f4ce440d21735ee
+//            http://melpon.org/wandbox/permlink/RMohaKu2B9Lr90TA
 
 namespace TriviallyCopyable {
 namespace {
