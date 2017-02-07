@@ -6,6 +6,8 @@
 #include <cassert>
 #include <cstring>
 #include <numeric>
+#include <functional>
+#include <utility>
 
 // Reference: http://coliru.stacked-crooked.com/view?id=d51ff6c809c9d6fabede11d0fa67a19a-f0d9bbac4ab033ac5f4ce440d21735ee
 
@@ -16,18 +18,7 @@ struct BoolPack;
 template <bool... T>
 using AllTrue = std::is_same<BoolPack<true, T...>, BoolPack<T..., true>>;
 
-template <unsigned...>
-struct ReverseIntegerSequence {
-	using type = ReverseIntegerSequence;
-};
-
-template <unsigned I, unsigned... Is>
-struct MakeReverseIntegerSequence
-    : MakeReverseIntegerSequence<I - 1, I - 1, Is...>::type {};
-template <unsigned... Is>
-struct MakeReverseIntegerSequence<0, Is...> : ReverseIntegerSequence<Is...> {};
-
-template <unsigned I, typename T>
+template <size_t I, typename T>
 struct Element {
 	static_assert(std::is_trivially_copyable<T>::value, "Required trivially copyable element.");
 	T value;
@@ -36,11 +27,9 @@ struct Element {
 	Element(T && v) : value(std::move(v)) {}
 };
 
-template <typename seq, typename... Ts>
-struct TupleImpl;
-
-template <unsigned... Is, typename... Ts>
-struct TupleImpl<ReverseIntegerSequence<Is...>, Ts...>
+template<class...> struct TupleImpl;
+template<size_t... Is, class... Ts>
+struct TupleImpl<std::index_sequence<Is...>, Ts...>
     : Element<Is, Ts>... {
 	using BaseType = TupleImpl;
 	TupleImpl() = default;
@@ -78,26 +67,36 @@ bool compare(const T1 & head, const T2 &... tail) {
 
 } // namespace
 
-template <typename... Ts>
+template <size_t I, typename T, bool Ok> struct NthElementBase {};
+template <size_t I, typename T> 
+struct NthElementBase<I, T, true> {
+  using type = T;
+};
+template <size_t, typename...> struct NthElementImpl;
+template <size_t I, size_t... Is, typename... Ts>
+struct NthElementImpl<I, std::index_sequence<Is...>, Ts...>
+    : NthElementBase<Is, Ts, I == Is>... {};
+template <size_t I, typename... Ts>
+using NthElement = NthElementImpl<I, std::index_sequence_for<Ts...>, Ts...>;
+
+template <typename... Ts> 
 struct Tuple;
 
-template <unsigned I, typename T>
+template <typename T>
+struct TupleSize;
+template <typename... Ts>
+struct TupleSize<Tuple<Ts...>>
+	: public std::integral_constant<size_t, sizeof...(Ts)> {};
+
+template <size_t I, typename T>
 struct TupleElement;
-
-template <unsigned I, typename Head, typename ... Tail>
-struct TupleElement<I, Tuple<Head, Tail...>>
-	: TupleElement<I-1, Tuple<Tail...>> {};
-
-template <typename Head, typename ... Tail>
-struct TupleElement<0, Tuple<Head, Tail...>> {
-	typedef Head type;
-};
+template <size_t I, typename... Ts>
+struct TupleElement<I, Tuple<Ts...>> 
+	: public NthElement<I, Ts...> {};
 
 template <typename... Ts>
-struct Tuple
-    : TupleImpl<
-          typename MakeReverseIntegerSequence<sizeof...(Ts)>::type, Ts...> {
-	typedef typename MakeReverseIntegerSequence<sizeof...(Ts)>::type Ris;
+struct Tuple: TupleImpl<typename std::index_sequence_for<Ts...>, Ts...> {
+	typedef typename std::index_sequence_for<Ts...> Is;
 
 	Tuple() = default;
 	Tuple(const Tuple &) = default;
@@ -116,22 +115,22 @@ struct Tuple
 	Tuple &operator=(const Tuple<Us...> &o) {
 		static_assert(!std::is_same<Tuple<Ts...>, Tuple<Us...>>::value, "tuple type must be different");
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple object can be assigned if they have equal sizes.");
-		copyAssignmentOperatorImpl(o, Ris{});
+		copyAssignmentOperatorImpl(o, Is{});
 		return *this;
 	}
 
-	template <typename... Us, unsigned ...Is>
+	template <typename... Us, size_t ...Is>
 	void copyAssignmentOperatorImpl(const Tuple<Us...> &o,
-	                                ReverseIntegerSequence<Is...>) {
+	                                std::index_sequence<Is...>) {
 		(void)std::initializer_list<int>{static_cast<int>(this->template _get<Is>(*this) = o.template _get<Is>(o), 0)...};
 	}
 
-	template <unsigned I, typename T>
+	template <size_t I, typename T>
 	static const T & _get(const Element<I, T> &e) {
 		return e.value;
 	}
 
-	template <unsigned I, typename T>
+	template <size_t I, typename T>
 	static T &_get(Element<I, T> &e) {
 		return e.value;
 	}
@@ -175,33 +174,33 @@ struct Tuple
 	};
 
 
-	template <typename... Us, unsigned... Is>
+	template <typename... Us, size_t... Is>
 	bool lessImpl(const Tuple<Us...> &r,
-	              ReverseIntegerSequence<Is...>) const {
+	              std::index_sequence<Is...>) const {
 		return compare(LessCompare<typename TupleElement<
 		                   Is, Tuple>::type>(
 		    (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
 	}
 
-	template <typename... Us, unsigned... Is>
+	template <typename... Us, size_t... Is>
 	bool greaterImpl(const Tuple<Us...> &r,
-	                 ReverseIntegerSequence<Is...>) const {
+	                 std::index_sequence<Is...>) const {
 		return compare(GreaterCompare<typename TupleElement<
 		                   Is, Tuple>::type>(
 		    (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
 	}
 
-	template <typename... Us, unsigned... Is>
+	template <typename... Us, size_t... Is>
 	bool lessEqualImpl(const Tuple<Us...> &r,
-	                   ReverseIntegerSequence<Is...>) const {
+	                   std::index_sequence<Is...>) const {
 		return compare(LessEqualCompare<typename TupleElement<
 		                   Is, Tuple>::type>(
 		    (*this).template _get<Is>(*this), r.template _get<Is>(r))...);
 	}
 
-	template <typename... Us, unsigned... Is>
+	template <typename... Us, size_t... Is>
 	bool greaterEqualImpl(const Tuple<Us...> &r,
-	                      ReverseIntegerSequence<Is...>) const {
+	                      std::index_sequence<Is...>) const {
 		return compare(
 		    GreaterEqualCompare<typename TupleElement<
 		        Is, Tuple>::type>(
@@ -209,9 +208,9 @@ struct Tuple
 	}
 
 
-	template <typename... Us, unsigned... Is>
+	template <typename... Us, size_t... Is>
 	bool equalImpl(const Tuple<Us...> &r,
-	               ReverseIntegerSequence<Is...>) const {
+	               std::index_sequence<Is...>) const {
 		return accumulate(
 				true, [](bool a, bool b) { return a && b; },
 				std::equal_to<typename TupleElement<Is, Tuple>::type>()(
@@ -222,66 +221,66 @@ struct Tuple
 	template <typename... Us>
 	bool operator<(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
-		return lessImpl(o, Ris{});
+		return lessImpl(o, Is{});
 	}
 
 	template <typename... Us>
 	bool operator<=(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
-		return lessEqualImpl(o, Ris{});
+		return lessEqualImpl(o, Is{});
 	}
 
 	template <typename... Us>
 	bool operator==(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
-		return equalImpl(o, Ris{});
+		return equalImpl(o, Is{});
 	}
 
 	template <typename... Us>
 	bool operator!=(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
-		return !equalImpl(o, Ris{});
+		return !equalImpl(o, Is{});
 	}
 
 	template <typename... Us>
 	bool operator>(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
-		return greaterImpl(o, Ris{});
+		return greaterImpl(o, Is{});
 	}
 
 	template <typename... Us>
 	bool operator>=(const Tuple<Us...> &o) const {
 		static_assert(sizeof...(Ts) == sizeof...(Us), "tuple objects can only be compared if they have equal sizes.");
-		return greaterEqualImpl(o, Ris{});
+		return greaterEqualImpl(o, Is{});
 	}
 
-	template <unsigned... Is>
-	std::tuple<Ts...> makeStdTupleImpl(ReverseIntegerSequence<Is...>) const {
+	template <size_t... Is>
+	std::tuple<Ts...> makeStdTupleImpl(std::index_sequence<Is...>) const {
 		return std::tuple<Ts...>(_get<Is>(*this)...);
 	}
 
-	template <typename... Us, unsigned... Is>
-	Tuple<Us...> makeTupleImpl(ReverseIntegerSequence<Is...>) const {
+	template <typename... Us, size_t... Is>
+	Tuple<Us...> makeTupleImpl(std::index_sequence<Is...>) const {
 		return Tuple<Us...>(_get<Is>(*this)...);
 	}
 
 	operator std::tuple<Ts...>() const {
-		return makeStdTupleImpl(Ris{});
+		return makeStdTupleImpl(Is{});
 	}
 
 	template <typename... Us>
 	operator Tuple<Us...>() const {
-		return makeTupleImpl<Us...>(Ris{});
+		return makeTupleImpl<Us...>(Is{});
 	}
 };
 
-template <unsigned I, typename... Ts>
+template <size_t I, typename... Ts>
 auto get(const Tuple<Ts...> &tuple)
     -> decltype(tuple.template _get<I>(tuple)) {
 	return tuple.template _get<I>(tuple);
 }
 
-template <unsigned I, typename... Ts>
+template <size_t I, typename... Ts>
 auto get(Tuple<Ts...> &tuple)
     -> decltype(tuple.template _get<I>(tuple)) {
 	return tuple.template _get<I>(tuple);
@@ -307,7 +306,8 @@ int main(int argc, const char *argv[]) {
 	static_assert(std::is_same<const int, TriviallyCopyable::TupleElement<0, TriviallyCopyable::Tuple<const int, float, double>>::type>::value, "type mismatched 0");
 	static_assert(std::is_same<const float, TriviallyCopyable::TupleElement<1, TriviallyCopyable::Tuple<int, const float, double>>::type>::value, "type mismatched 1");
 	static_assert(std::is_same<const double, TriviallyCopyable::TupleElement<2, TriviallyCopyable::Tuple<int, float, const double>>::type>::value, "type mismatched 2");
-
+	
+	static_assert(TriviallyCopyable::TupleSize<TriviallyCopyable::Tuple<int, float, const double>>::value == 3, "size mismatched.");
 	std::cout << std::boolalpha;
 	{
 		auto funct = [](){return TriviallyCopyable::Tuple<int, float, double>();};
@@ -423,7 +423,8 @@ int main(int argc, const char *argv[]) {
 		typedef TriviallyCopyable::Tuple<int, E> Type1;
 		Type1 a(1,A), b;
 		std::memcpy(&b, &a, sizeof(Type1));
-		std::cout << TriviallyCopyable::get<0>(b) << ' ' << TriviallyCopyable::get<1>(b) << std::endl;
+		assert(TriviallyCopyable::get<0>(b) == 1);
+		assert(TriviallyCopyable::get<1>(b) == 0);
 	}
 
 	{
@@ -445,6 +446,21 @@ int main(int argc, const char *argv[]) {
 		TriviallyCopyable::Tuple<TriviallyCopyable::Tuple<uint32_t>> y2(std::move(x));
 		TriviallyCopyable::Tuple<uint32_t> z(std::move(x)); 
 	}
-//	TriviallyCopyable::Tuple<std::tuple<int>> c; // error
+	{
+		int a = 3;
+		std::reference_wrapper<int> t(a);
+		std::tuple<std::reference_wrapper<int>> x(a);
+		a = 2;
+		assert(std::get<0>(x) == 2);
+	}
+	{
+		int a = 3;
+		std::reference_wrapper<int> t(a);
+		TriviallyCopyable::Tuple<std::reference_wrapper<int>> x(a);
+		a = 2;
+		assert(TriviallyCopyable::get<0>(x) == 2);
+	}
+
+//	TriviallyCopyable::Tuple<std::tuple<int>> c; // error*/
 	return 0;
 }
