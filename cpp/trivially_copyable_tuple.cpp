@@ -285,7 +285,6 @@ struct Tuple: TupleImpl<typename std::index_sequence_for<Ts...>, Ts...> {
 	}
 };
 
-	
 template <size_t I, typename... Ts>
 auto get(const Tuple<Ts...> &tuple)
     -> decltype(tuple.template _get<I>(tuple)) {
@@ -299,6 +298,33 @@ auto get(Tuple<Ts...> &tuple)
 }
 
 } // namespace TriviallyCopyable
+
+namespace std {
+template <size_t I, typename... Ts>
+struct tuple_element<I, typename TriviallyCopyable::Tuple<Ts...>> {
+	using type = typename TriviallyCopyable::TupleElement<
+		I, TriviallyCopyable::Tuple<Ts...>>::type;
+};
+
+template <typename... Ts>
+struct tuple_size<typename TriviallyCopyable::Tuple<Ts...>> {
+	static constexpr size_t value = TriviallyCopyable::TupleSize<
+		typename TriviallyCopyable::Tuple<Ts...>>::value;
+};
+
+template <size_t I, typename... Ts>
+typename tuple_element<I, typename TriviallyCopyable::Tuple<Ts...>>::type &
+get(TriviallyCopyable::Tuple<Ts...> & tuple) {
+	return tuple.get<I>();
+}
+
+template <size_t I, typename... Ts>
+const typename tuple_element<I, typename TriviallyCopyable::Tuple<Ts...>>::type &
+get(const TriviallyCopyable::Tuple<Ts...> & tuple) {
+	return tuple.get<I>();
+}
+
+} // namespace std
 
 int main(int argc, const char *argv[]) {
 	static_assert(std::is_trivially_copyable<const int>::value, "Const int is trivially copyable");
