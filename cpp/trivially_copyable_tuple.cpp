@@ -501,6 +501,8 @@ int main(int argc, const char *argv[]) {
 
 	{
 		// TODO: tie method
+		// but it seems impossible to make it nicely.
+		// see http://stackoverflow.com/questions/26276943/make-custom-type-tie-able-compatible-with-stdtie
 //		const TriviallyCopyable::Tuple<int, int, int> t(1,2,3);
 //		std::cout << t.get<0>() << std::endl;;
 //		int a, b, c;
