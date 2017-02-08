@@ -126,6 +126,16 @@ struct Tuple: TupleImpl<typename std::index_sequence_for<Ts...>, Ts...> {
 		(void)std::initializer_list<int>{static_cast<int>(this->template _get<Is>(*this) = o.template _get<Is>(o), 0)...};
 	}
 
+	template <size_t I>
+	auto get() const -> const typename TupleElement<I, Tuple>::type & {
+		return _get<I>(*this);
+	}
+
+	template <size_t I>
+	auto get() -> typename TupleElement<I, Tuple>::type & {
+		return _get<I>(*this);
+	}
+
 	template <size_t I, typename T>
 	static const T & _get(const Element<I, T> &e) {
 		return e.value;
@@ -255,9 +265,9 @@ struct Tuple: TupleImpl<typename std::index_sequence_for<Ts...>, Ts...> {
 		return greaterEqualImpl(o, Is{});
 	}
 
-	template <size_t... Is>
-	std::tuple<Ts...> makeStdTupleImpl(std::index_sequence<Is...>) const {
-		return std::tuple<Ts...>(_get<Is>(*this)...);
+	template <typename... Us, size_t... Is>
+	std::tuple<Us...> makeStdTupleImpl(std::index_sequence<Is...>) const {
+		return std::tuple<Us...>(_get<Is>(*this)...);
 	}
 
 	template <typename... Us, size_t... Is>
@@ -266,15 +276,16 @@ struct Tuple: TupleImpl<typename std::index_sequence_for<Ts...>, Ts...> {
 	}
 
 	operator std::tuple<Ts...>() const {
-		return makeStdTupleImpl(Is{});
+		return makeStdTupleImpl<Ts...>(Is{});
 	}
-
+	
 	template <typename... Us>
 	operator Tuple<Us...>() const {
 		return makeTupleImpl<Us...>(Is{});
 	}
 };
 
+	
 template <size_t I, typename... Ts>
 auto get(const Tuple<Ts...> &tuple)
     -> decltype(tuple.template _get<I>(tuple)) {
@@ -462,6 +473,16 @@ int main(int argc, const char *argv[]) {
 		assert(TriviallyCopyable::get<0>(x) == 2);
 	}
 
+	{
+		// TODO: tie method
+//		const TriviallyCopyable::Tuple<int, int, int> t(1,2,3);
+//		std::cout << t.get<0>() << std::endl;;
+//		int a, b, c;
+//		TriviallyCopyable::tie(a, b, c) = t;
+//		assert(a == 1);
+//		assert(b == 2);
+//		assert(c == 3);
+	}
 //	TriviallyCopyable::Tuple<std::tuple<int>> c; // error*/
 	return 0;
 }
