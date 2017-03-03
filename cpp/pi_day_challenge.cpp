@@ -33,11 +33,10 @@ void repeat(size_t trials, Funct f) {
 class Experiment {
 public:
 	Experiment(double r) : r(r) {}
-	Experiment & operator()() {
+	size_t operator()() {
 		double x = random_coordinate(r), y = random_coordinate(r);
 		hits += inside_circle(r, x, y) ? 1 : 0;
-		++trials;
-		return *this;
+		return ++trials;
 	}
 
 	double estimated_pi() const { return probability() * 4; }
@@ -54,13 +53,10 @@ private:
 
 void table(double MAX_RADIUS, size_t MAX_N_PTS) {
 	for (double r = 1 ; r <= MAX_RADIUS ; r *= 10) {
-		auto print = [next = 1](const auto & experiment) mutable {
-			if (experiment.num_trials() < next) return;
+		repeat(MAX_N_PTS, [experiment = Experiment(r), next = 1]() mutable {
+			if (experiment() < next) return;
 			std::cout << std::setw(14) << distance(experiment.estimated_pi(), PI);
 			next *= 10;
-		};
-		repeat(MAX_N_PTS, [&, experiment = Experiment(r)]() mutable {
-			print(experiment());
 		});
 		std::cout << std::endl;
 	}
