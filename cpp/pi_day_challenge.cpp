@@ -4,11 +4,6 @@
 #include <iomanip>
 #include <functional>
 
-/* Variable constants */
-constexpr size_t N = 9;
-constexpr size_t M = 7;
-/* Variable constants done */
-
 const double PI = 3.14159265359;
 
 /* General functions */
@@ -20,7 +15,7 @@ double random_coordinate(double r) {
 	return dist(rng);
 }
 
-double distance(double a, double b) {
+double error(double a, double b) {
 	return std::abs(a - b);
 }
 
@@ -33,10 +28,11 @@ void repeat(size_t trials, Funct f) {
 class Experiment {
 public:
 	Experiment(double r) : r(r) {}
-	size_t operator()() {
+	const Experiment & operator()() {
 		double x = random_coordinate(r), y = random_coordinate(r);
 		hits += inside_circle(r, x, y) ? 1 : 0;
-		return ++trials;
+		++trials;
+		return *this;
 	}
 
 	double estimated_pi() const { return probability() * 4; }
@@ -54,8 +50,8 @@ private:
 void table(double MAX_RADIUS, size_t MAX_N_PTS) {
 	for (double r = 1 ; r <= MAX_RADIUS ; r *= 10) {
 		repeat(MAX_N_PTS, [experiment = Experiment(r), next = 1]() mutable {
-			if (experiment() < next) return;
-			std::cout << std::setw(14) << distance(experiment.estimated_pi(), PI);
+			if (experiment().num_trials() < next) return;
+			std::cout << std::setw(14) << error(experiment.estimated_pi(), PI);
 			next *= 10;
 		});
 		std::cout << std::endl;
@@ -64,6 +60,8 @@ void table(double MAX_RADIUS, size_t MAX_N_PTS) {
 
 int main(int argc, const char *argv[])
 {
+	constexpr size_t N = 9;
+	constexpr size_t M = 7;
 	table(std::pow(10, N), std::pow(10, M));
 	return 0;
 };
