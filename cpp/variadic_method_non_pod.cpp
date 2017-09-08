@@ -29,12 +29,19 @@ int main(int argc, const char *argv[])
 {
 	f();
 	f(POD());
+	f(NONPOD());
 
 	// https://stackoverflow.com/questions/10083844/passing-non-pod-type-to-variadic-function-is-undefined-behavior
-	// calling variadic method with non-pod type arguments is IMPLEMENTED BEHAVIOR. 
-	// Apparently, both gcc-7 and clang-4 accepts non-pod type
-	// but clang-4 reject non-trivially-copyable type.
-	f(NONPOD());
+	// calling variadic method with non-trivially-copyable-type type arguments is IMPLEMENTED BEHAVIOR. 
+	// clang-4 reject non-trivially-copyable type. (gcc-7 is okay)
+
+	// C++11 5.2.2/7:
+	// Passing a potentially-evaluated argument of class type having a
+	// non-trivial copy constructor, a non-trivial move contructor, or a
+	// non-trivial destructor, with no corresponding parameter, is
+	// conditionally-supported with implementation-defined semantics.
+	
 	//f(NONTRIVIALLYCOPYABLE()); // g++-7 can compile this but not clang.
+
 	return 0;
 }
