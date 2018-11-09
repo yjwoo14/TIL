@@ -30,8 +30,24 @@ struct S<R(T::*)()> {
 
 template <typename R, typename T, typename A1, typename ...ARGS>
 struct S<R(T::*)(A1, ARGS...)> {
+	typedef A1 type;
 	bool operator()() {
 		std::cout << "Member function with argument " << typeid(A1).name() << std::endl;
+	}
+};
+
+template <typename R, typename T>
+struct S<R(T::*)() const> {
+	bool operator()() {
+		std::cout << "Const member function" << std::endl;
+	}
+};
+
+template <typename R, typename T, typename A1, typename ...ARGS>
+struct S<R(T::*)(A1, ARGS...) const> {
+	typedef A1 type;
+	bool operator()() {
+		std::cout << "Const member function with argument " << typeid(A1).name() << std::endl;
 	}
 };
 
@@ -41,7 +57,9 @@ void bar(int) {}
 
 struct Functor {
 	void foo() {}
-	void operator()(const S<int> &){};
+	void bar(int) {}
+	void operator()() const {};
+	void kkkk(int) const {}
 };
 
 int main(int argc, const char *argv[])
@@ -56,8 +74,12 @@ int main(int argc, const char *argv[])
 	Functor f;
 	S<decltype(&Functor::foo)> four;
 	four();
-	S<decltype(&Functor::operator())> five;
+	S<decltype(&Functor::bar)> five;
 	five();
+	S<decltype(&Functor::operator())> six;
+	six();
+	S<decltype(&Functor::kkkk)> seven;
+	seven();
 
 	return 0;
 }
