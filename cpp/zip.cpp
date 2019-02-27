@@ -65,12 +65,9 @@ int main() {
 	for (const auto & [aa, bb, cc] : zip(a, b, c)) { std::cout << aa << " " << bb << " " << cc << std::endl; }
 	std::cout << std::endl;
 
-	for (const auto & [aa, bb] : zip(a, b)) { std::cout << aa << " " << bb << std::endl; }
-	std::cout << std::endl;
+	for (auto [aa, bb] : zip(a,b)) {
+		aa += bb;
+	}
 
 	for (const auto & [aa, bb] : zip(a, b)) { std::cout << aa << " " << bb << std::endl; }
-	std::cout << std::endl;
-	for (auto & v: a) std::cout << v << std::endl;
-
-
 }
